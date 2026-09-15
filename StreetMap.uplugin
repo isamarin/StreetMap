@@ -26,6 +26,12 @@
 			"Name" : "StreetMapImporting",
 			"Type" : "Editor",
 			"LoadingPhase" : "Default"
+		},
+
+		{
+			"Name" : "StreetMapTests",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		}
   ]
 }

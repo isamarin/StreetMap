@@ -8,15 +8,36 @@ StreetMap is an Unreal Engine plugin (currently targeting UE 5.1+) that imports 
 
 ## Build / test / run
 
-There is no CLI build, lint, or test suite in this repo — it's compiled as part of a host Unreal Engine project via the UE Build Tool (UBT).
+This repo has no `.uproject` of its own — it's a plugin, compiled as part of a host Unreal Engine project via the UE Build Tool (UBT). There's no package-manager-style "npm test"; you build/run through UBT and the editor directly.
 
-- To build: drop/symlink this repo into `<HostProject>/Plugins/StreetMap/`, then regenerate project files and build the host project (Visual Studio on Windows, Xcode on Mac) or run UBT directly, e.g. `RunUAT`/`Build.bat`/`Build.sh` against the host `.uproject`.
-- There are no automated tests in the repo. Verify changes by loading the host project's editor, importing an `.osm` file, and checking the generated `StreetMapActor` in the viewport.
-- Compile errors/warnings are only visible through the host project's build (Visual Studio error list, or UBT console output).
+**Building against a locally installed engine, without a real host project:** create a throwaway host project (a `.uproject` + a trivial primary game module) anywhere, and point it at this repo *without* symlinking it into a `Plugins/` folder — symlinks confuse UBA (Unreal Build Accelerator)'s file tracking and cause spurious "no such file" failures mid-build. Instead reference the plugin via the project's `"AdditionalPluginDirectories"` array pointing at this repo's *parent* directory (UBT scans immediate subdirectories of each entry for a `.uplugin`), e.g.:
+
+```json
+"AdditionalPluginDirectories": [ "/absolute/path/to/parent/of/StreetMap" ]
+```
+
+Then build the Editor target directly with UBT (no Xcode/project-file generation needed for a compile-only check):
+
+```sh
+"<EngineRoot>/Engine/Build/BatchFiles/Mac/Build.sh" <ProjectName>Editor Mac Development -project="<path-to>.uproject" -waitmutex
+```
+
+(`Linux.sh`/`Build.bat` on other platforms.) `<EngineRoot>` on this machine is under `/Volumes/BLMKGO/Epic Games/UE_5.8` — check `mdfind "kMDItemFSName == 'UnrealEditor.app'"` if it's moved.
+
+- **Tests**: `Source/StreetMapTests` is an Editor-module of UE Automation Spec/Simple tests (`Misc/AutomationTest.h`, gated on `WITH_DEV_AUTOMATION_TESTS`) covering `FOSMFile` parsing edge cases and `UStreetMapComponent` mesh generation. Run headlessly once the host project is built:
+
+  ```sh
+  "<EngineRoot>/Engine/Binaries/Mac/UnrealEditor" "<path-to>.uproject" -ExecCmds="Automation RunTests StreetMap;Quit" -unattended -nopause -nullrhi -nosplash -log
+  ```
+
+  Results land in the log (`~/Library/Logs/Unreal Engine/<ProjectName>Editor/<ProjectName>.log`) as `LogAutomationController: Display: Test Completed. Result={Success|Fail} ...` lines, plus a final `**** TEST COMPLETE. EXIT CODE: 0 ****`. `StreetMapTests` reaches into `StreetMapImporting`'s headers directly (that module has no Public/Private split) via `PrivateIncludePaths` in its own `.Build.cs`, rather than restructuring `StreetMapImporting`.
+- For end-to-end / rendering verification beyond what Automation tests cover: load the host project's editor, import an `.osm` file, and check the generated `StreetMapActor` in the viewport.
+- Compile warnings/errors otherwise only show up through whatever's driving the build (Visual Studio error list, Xcode, or raw UBT console output).
+- The plugin's documented baseline is UE 5.1/5.2 (see git history), but it has also been build-verified against UE 5.8 in this repo's history — a couple of spots are version-guarded (`ENGINE_MAJOR_VERSION`/`ENGINE_MINOR_VERSION`) where the 5.8 engine API diverged: `TArray::SetNum()`'s second parameter (`bool` → `EAllowShrinking` as of 5.5) and `UActorFactory::PostCreateBlueprint` (removed by 5.8, with no direct replacement found). If bumping the effective minimum engine version, these guards can likely be simplified.
 
 ## Module architecture
 
-The plugin is split into two UE modules, declared in [StreetMap.uplugin](StreetMap.uplugin):
+The plugin is split into three UE modules, declared in [StreetMap.uplugin](StreetMap.uplugin):
 
 - **StreetMapRuntime** (`Source/StreetMapRuntime`, Runtime module) — ships in packaged games. Depends only on `Core`, `CoreUObject`, `Engine`, `RHI`, `RenderCore`, `NavigationSystem`. Contains:
   - `UStreetMap` ([StreetMap.h](Source/StreetMapRuntime/Public/StreetMap.h)) — the serialized data asset: `FStreetMapRoad`, `FStreetMapNode`, `FStreetMapBuilding` structs, plus inline pathfinding helper functions on roads/nodes (connectivity, distance-along-road, cost estimation). This is pure data + query logic, no rendering.
@@ -30,6 +51,8 @@ The plugin is split into two UE modules, declared in [StreetMap.uplugin](StreetM
   - `UStreetMapReimportFactory` — supports drag-reimport of an existing `UStreetMap` asset from its original `.osm` source path (via `AssetImportData`).
   - `UStreetMapActorFactory` — lets you drag a `UStreetMap` asset into the viewport to spawn an `AStreetMapActor`.
   - `StreetMapComponentDetails` / `StreetMapStyle` / `StreetMapAssetTypeActions` — editor UI glue (details panel customization, asset icons, content browser integration).
+
+- **StreetMapTests** (`Source/StreetMapTests`, Editor-only module) — UE Automation tests for `StreetMapRuntime`/`StreetMapImporting` logic (see "Build / test / run" above for how to run them). Not a dependency of the other two modules — nothing outside this module should depend on it.
 
 ### Import → runtime data flow
 

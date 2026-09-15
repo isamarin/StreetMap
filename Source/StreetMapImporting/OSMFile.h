@@ -2,7 +2,7 @@
 #include "FastXml.h"
 
 /** OpenStreetMap file loader */
-class FOSMFile : public IFastXmlCallback
+class STREETMAPIMPORTING_API FOSMFile : public IFastXmlCallback
 {
 	
 public:

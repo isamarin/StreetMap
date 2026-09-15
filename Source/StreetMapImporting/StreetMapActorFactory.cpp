@@ -23,6 +23,7 @@ void UStreetMapActorFactory::PostSpawnActor(UObject* Asset, AActor* NewActor)
 	}
 }
 
+#if ENGINE_MAJOR_VERSION < 5 || ( ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 8 )
 void UStreetMapActorFactory::PostCreateBlueprint(UObject* Asset, AActor* CDO)
 {
 	if (Asset != nullptr && CDO != nullptr)
@@ -33,6 +34,7 @@ void UStreetMapActorFactory::PostCreateBlueprint(UObject* Asset, AActor* CDO)
 		StreetMapComponent->SetStreetMap(StreetMapAsset, true, false);
 	}
 }
+#endif
 
 bool UStreetMapActorFactory::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
 {

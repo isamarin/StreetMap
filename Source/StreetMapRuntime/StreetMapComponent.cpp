@@ -11,6 +11,13 @@
 #include "PropertyEditorModule.h"
 #endif //WITH_EDITOR
 
+// TArray::SetNum()'s second parameter changed from a bool to an EAllowShrinking enum in UE 5.5.
+#if ENGINE_MAJOR_VERSION > 5 || ( ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5 )
+	static constexpr EAllowShrinking StreetMap_DontAllowShrinking = EAllowShrinking::No;
+#else
+	static constexpr bool StreetMap_DontAllowShrinking = false;
+#endif
+
 UStreetMapComponent::UStreetMapComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer),
 	  StreetMap(nullptr),
@@ -312,7 +319,7 @@ void UStreetMapComponent::GenerateMesh()
 
 				// Top of building
 				{
-					TempPoints.SetNum( Building.BuildingPoints.Num(), false );
+					TempPoints.SetNum( Building.BuildingPoints.Num(), StreetMap_DontAllowShrinking );
 					for( int32 PointIndex = 0; PointIndex < Building.BuildingPoints.Num(); ++PointIndex )
 					{
 						TempPoints[ PointIndex ] = FVector3f( FVector2f(Building.BuildingPoints[ ( Building.BuildingPoints.Num() - PointIndex ) - 1 ]), BuildingFillZ );
@@ -330,7 +337,7 @@ void UStreetMapComponent::GenerateMesh()
 						{
 							const int32 RightPointIndex = ( LeftPointIndex + 1 ) % Building.BuildingPoints.Num();
 
-							TempPoints.SetNum( 4, false );
+							TempPoints.SetNum( 4, StreetMap_DontAllowShrinking );
 
 							const int32 TopLeftVertexIndex = 0;
 							TempPoints[ TopLeftVertexIndex ] = FVector3f( FVector2f(Building.BuildingPoints[ WindsClockwise ? RightPointIndex : LeftPointIndex ]), BuildingFillZ );
@@ -345,7 +352,7 @@ void UStreetMapComponent::GenerateMesh()
 							TempPoints[ BottomLeftVertexIndex ] = FVector3f( FVector2f(Building.BuildingPoints[ WindsClockwise ? RightPointIndex : LeftPointIndex ]), 0.0f );
 
 
-							TempIndices.SetNum( 6, false );
+							TempIndices.SetNum( 6, StreetMap_DontAllowShrinking );
 
 							TempIndices[ 0 ] = BottomLeftVertexIndex;
 							TempIndices[ 1 ] = TopLeftVertexIndex;
