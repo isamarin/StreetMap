@@ -422,14 +422,40 @@ bool UStreetMapFactory::LoadFromOpenStreetMapXMLFile( UStreetMap* StreetMap, FSt
 	}
 
 	// Validation test: Make sure that all roads have at least two nodes referencing them, one at the beginning and
-	// one at the end.
-	for( const FStreetMapRoad& Road : StreetMap->Roads )
+	// one at the end.  Malformed OSM data (e.g. a node reference that doesn't resolve to any declared node) can
+	// otherwise leave a road without an endpoint node, which would later crash code that assumes every road has
+	// valid endpoints (e.g. FStreetMapRoad::GetNodeAtPointIndexOrEarlier/OrLater).  Rather than shipping a broken
+	// asset, synthesize a node for any missing endpoint so the invariant always holds.
+	for( FStreetMapRoad& Road : StreetMap->Roads )
 	{
+		const int32 LastPointIndex = Road.NodeIndices.Num() - 1;
 		const bool bHasNodeAtBeginning = Road.NodeIndices[ 0 ] != INDEX_NONE;
-		const bool bHasNodeAtEnd = Road.NodeIndices[ Road.NodeIndices.Num() - 1 ] != INDEX_NONE;
+		const bool bHasNodeAtEnd = Road.NodeIndices[ LastPointIndex ] != INDEX_NONE;
 
-		// All roads should have at least two nodes referencing them, one at the beginning and one at the end
-		ensure( bHasNodeAtBeginning && bHasNodeAtEnd );
+		if( ensureMsgf( bHasNodeAtBeginning && bHasNodeAtEnd, TEXT( "StreetMap import: road '%s' is missing an endpoint node; synthesizing one so the map data stays valid" ), *Road.RoadName ) == false )
+		{
+			auto SynthesizeEndpointNode = [ StreetMap ]( FStreetMapRoad& RoadRef, const int32 PointIndex )
+			{
+				const int32 NewNodeIndex = StreetMap->Nodes.Num();
+				FStreetMapNode& NewNode = StreetMap->Nodes.AddDefaulted_GetRef();
+
+				FStreetMapRoadRef NewRoadRef;
+				NewRoadRef.RoadIndex = RoadRef.GetRoadIndex( *StreetMap );
+				NewRoadRef.RoadPointIndex = PointIndex;
+				NewNode.RoadRefs.Add( NewRoadRef );
+
+				RoadRef.NodeIndices[ PointIndex ] = NewNodeIndex;
+			};
+
+			if( !bHasNodeAtBeginning )
+			{
+				SynthesizeEndpointNode( Road, 0 );
+			}
+			if( !bHasNodeAtEnd )
+			{
+				SynthesizeEndpointNode( Road, LastPointIndex );
+			}
+		}
 	}
 
 	return true;

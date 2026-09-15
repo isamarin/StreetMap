@@ -84,8 +84,10 @@ protected:
 	/** Initializes this scene proxy's vertex buffer, index buffer and vertex factory (on the render thread.) */
 	void InitResources();
 
-	/** Makes a MeshBatch for rendering.  Called every time the mesh is drawn */
-	void MakeMeshBatch(struct FMeshBatch& Mesh, class FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision = false) const;
+	/** Makes a MeshBatch for rendering.  Called every time the mesh is drawn.  When bDrawCollision creates a
+	    one-frame material proxy, it is registered with Collector (if non-null) so it gets cleaned up automatically
+	    instead of leaking. */
+	void MakeMeshBatch(struct FMeshBatch& Mesh, class FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision = false, class FMeshElementCollector* Collector = nullptr) const;
 
 	/** Checks to see if this mesh must be drawn during the dynamic pass.  Note that even when this returns false, we may still
 	have other (debug) geometry to render as dynamic */

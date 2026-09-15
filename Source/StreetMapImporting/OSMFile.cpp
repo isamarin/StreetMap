@@ -177,15 +177,23 @@ bool FOSMFile::ProcessAttribute( const TCHAR* AttributeName, const TCHAR* Attrib
 		if( !FCString::Stricmp( AttributeName, TEXT( "ref" ) ) )
 		{
 			FOSMNodeInfo* ReferencedNode = NodeMap.FindRef( FPlatformString::Atoi64( AttributeValue ) );
-			const int NewNodeIndex = CurrentWayInfo->Nodes.Num();
-			CurrentWayInfo->Nodes.Add( ReferencedNode );
-					
-			// Update the node with information about the way that is referencing it
+			if( ReferencedNode != nullptr )
 			{
-				FOSMWayRef NewWayRef;
-				NewWayRef.Way = CurrentWayInfo;
-				NewWayRef.NodeIndex = NewNodeIndex;
-				ReferencedNode->WayRefs.Add( NewWayRef );
+				const int NewNodeIndex = CurrentWayInfo->Nodes.Num();
+				CurrentWayInfo->Nodes.Add( ReferencedNode );
+
+				// Update the node with information about the way that is referencing it
+				{
+					FOSMWayRef NewWayRef;
+					NewWayRef.Way = CurrentWayInfo;
+					NewWayRef.NodeIndex = NewNodeIndex;
+					ReferencedNode->WayRefs.Add( NewWayRef );
+				}
+			}
+			else
+			{
+				// This way references a node ID that isn't declared anywhere in this file (common with
+				// bounding-box-clipped exports).  Skip it rather than storing a null node pointer.
 			}
 		}
 	}
@@ -197,6 +205,12 @@ bool FOSMFile::ProcessAttribute( const TCHAR* AttributeName, const TCHAR* Attrib
 		}
 		else if( !FCString::Stricmp( AttributeName, TEXT( "v" ) ) )
 		{
+			if( CurrentWayTagKey == nullptr )
+			{
+				// Malformed tag: a "v" attribute appeared without a preceding "k" attribute.  Ignore it.
+				return true;
+			}
+
 			if( !FCString::Stricmp( CurrentWayTagKey, TEXT( "name" ) ) )
 			{
 				CurrentWayInfo->Name = AttributeValue;
@@ -376,10 +390,28 @@ bool FOSMFile::ProcessClose( const TCHAR* Element )
 {
 	if( ParsingState == ParsingState::Node )
 	{
-		NodeMap.Add( CurrentNodeID, CurrentNodeInfo );
+		if( FOSMNodeInfo** ExistingNodeInfo = NodeMap.Find( CurrentNodeID ) )
+		{
+			// Duplicate node ID in the file.  It's only safe to replace the existing node if nothing has
+			// referenced it yet; otherwise we'd leave dangling pointers in already-parsed ways.
+			if( (*ExistingNodeInfo)->WayRefs.Num() == 0 )
+			{
+				delete *ExistingNodeInfo;
+				*ExistingNodeInfo = CurrentNodeInfo;
+			}
+			else
+			{
+				delete CurrentNodeInfo;
+			}
+		}
+		else
+		{
+			NodeMap.Add( CurrentNodeID, CurrentNodeInfo );
+		}
+
 		CurrentNodeID = 0;
 		CurrentNodeInfo = nullptr;
-				
+
 		ParsingState = ParsingState::Root;
 	}
 	else if( ParsingState == ParsingState::Way )

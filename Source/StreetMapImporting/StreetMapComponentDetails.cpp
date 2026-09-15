@@ -50,9 +50,9 @@ void FStreetMapComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBu
 	{
 		TArray<TWeakObjectPtr<AActor>> SelectedActors = DetailBuilder.GetDetailsView()->GetSelectedActors();
 
-		for (const TWeakObjectPtr<UObject>& Object : SelectedObjects)
+		for (const TWeakObjectPtr<AActor>& Object : SelectedActors)
 		{
-			AActor* TempActor = Cast<AActor>(Object.Get());
+			AActor* TempActor = Object.Get();
 			if (TempActor != nullptr && !TempActor->IsTemplate())
 			{
 				UStreetMapComponent* TempStreetMapComp = TempActor->FindComponentByClass<UStreetMapComponent>();

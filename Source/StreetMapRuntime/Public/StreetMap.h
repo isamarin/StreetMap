@@ -831,7 +831,14 @@ inline float FStreetMapNode::GetConnectionCost( const UStreetMap& StreetMap, con
 	int32 ConnectedNodePointIndexOnRoad;
 
 	const FStreetMapRoad* ConnectingRoad = nullptr;
-	const FStreetMapNode& ConnectedNode = *GetConnection( StreetMap, ConnectionIndex, bIsTravelingForward, /* Out */ &ConnectingRoad, /* Out */ &MyPointIndexOnRoad, /* Out */ &ConnectedNodePointIndexOnRoad );
+	const FStreetMapNode* ConnectedNode = GetConnection( StreetMap, ConnectionIndex, bIsTravelingForward, /* Out */ &ConnectingRoad, /* Out */ &MyPointIndexOnRoad, /* Out */ &ConnectedNodePointIndexOnRoad );
+	if( ConnectedNode == nullptr || ConnectingRoad == nullptr )
+	{
+		// Caller passed a ConnectionIndex outside of [0, GetConnectionCount()) range.  check()/ensure() inside
+		// GetConnection() catch this in development builds, but are compiled out in Shipping, so guard here
+		// too rather than dereferencing a null connecting road below.
+		return TNumericLimits<float>::Max();
+	}
 
 	const float DistanceBetweenNodes = ConnectingRoad->ComputeDistanceBetweenNodesOnRoad( StreetMap, MyPointIndexOnRoad, ConnectedNodePointIndexOnRoad );
 	

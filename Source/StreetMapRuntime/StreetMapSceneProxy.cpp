@@ -116,7 +116,7 @@ bool FStreetMapSceneProxy::CanBeOccluded() const
 }
 
 
-void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision) const
+void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision, FMeshElementCollector* Collector) const
 {
 	FMaterialRenderProxy* MaterialProxy = nullptr;
 	if( WireframeMaterialRenderProxyOrNull != nullptr )
@@ -127,7 +127,12 @@ void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy
 	{
 		if (bDrawCollision)
 		{
-			MaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(), FColor::Cyan);
+			FColoredMaterialRenderProxy* CollisionMaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(), FColor::Cyan);
+			if (Collector != nullptr)
+			{
+				Collector->RegisterOneFrameMaterialProxy(CollisionMaterialProxy);
+			}
+			MaterialProxy = CollisionMaterialProxy;
 		}
 		else if (MaterialProxy == nullptr)
 		{
@@ -179,6 +184,10 @@ void FStreetMapSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*
 			const bool bIsWireframe = AllowDebugViewmodes() && View.Family->EngineShowFlags.Wireframe;
 
 			FColoredMaterialRenderProxy* WireframeMaterialRenderProxy = GEngine->WireframeMaterial && bIsWireframe ? new FColoredMaterialRenderProxy(GEngine->WireframeMaterial->GetRenderProxy(), FLinearColor(0, 0.5f, 1.f)) : nullptr;
+			if (WireframeMaterialRenderProxy != nullptr)
+			{
+				Collector.RegisterOneFrameMaterialProxy(WireframeMaterialRenderProxy);
+			}
 
 			if (MustDrawMeshDynamically(View))
 			{
@@ -192,7 +201,7 @@ void FStreetMapSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*
 
 				// Draw the mesh!
 				FMeshBatch& MeshBatch = Collector.AllocateMesh();
-				MakeMeshBatch(MeshBatch, WireframeMaterialRenderProxy, bCanDrawCollision);
+				MakeMeshBatch(MeshBatch, WireframeMaterialRenderProxy, bCanDrawCollision, &Collector);
 				Collector.AddMesh(ViewIndex, MeshBatch);
 			}
 		}

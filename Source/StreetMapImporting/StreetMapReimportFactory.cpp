@@ -1,6 +1,7 @@
 #include "StreetMapReimportFactory.h"
 #include "StreetMap.h"
 #include "EditorFramework/AssetImportData.h"
+#include "HAL/FileManager.h"
 
 UStreetMapReimportFactory::UStreetMapReimportFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -35,8 +36,9 @@ EReimportResult::Type UStreetMapReimportFactory::Reimport( UObject* Obj )
 	const FString Filename = StreetMap->AssetImportData->GetFirstFilename();
 	const FString FileExtension = FPaths::GetExtension(Filename);
 
-	// If there is no file path provided, can't reimport from source
-	if ( !Filename.Len() )
+	// If there is no file path provided, or the source .osm file no longer exists on disk (moved, renamed,
+	// or deleted since the original import), we can't reimport from source
+	if ( !Filename.Len() || !IFileManager::Get().FileExists( *Filename ) )
 	{
 		return EReimportResult::Failed;
 	}

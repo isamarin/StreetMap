@@ -544,6 +544,13 @@ FBoxSphereBounds UStreetMapComponent::CalcBounds( const FTransform& LocalToWorld
 
 void UStreetMapComponent::AddThick2DLine( const FVector2f Start, const FVector2f End, const float Z, const float Thickness, const FColor& StartColor, const FColor& EndColor, FBox3f& MeshBoundingBox )
 {
+	// Skip degenerate segments (e.g. consecutive duplicate points along a road/building outline) rather than
+	// emitting a zero-area quad with an undefined tangent basis.
+	if( Start.Equals( End, KINDA_SMALL_NUMBER ) )
+	{
+		return;
+	}
+
 	const float HalfThickness = Thickness * 0.5f;
 
 	const FVector2f LineDirection = ( End - Start ).GetSafeNormal();

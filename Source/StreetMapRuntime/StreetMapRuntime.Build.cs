@@ -15,6 +15,12 @@ namespace UnrealBuildTool.Rules
                     "NavigationSystem"
                 }
 			);
+
+			if (Target.bBuildEditor)
+			{
+				// Needed by the WITH_EDITOR-only code in StreetMapComponent.cpp (PostEditChangeProperty)
+				PrivateDependencyModuleNames.Add("PropertyEditor");
+			}
 		}
 	}
 }
